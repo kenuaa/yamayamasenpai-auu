@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>yamatoclicker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #222;
+            color: #fff;
+            margin: 0;
+            overflow: hidden;
+        }
+        #menu, #result {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 10;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 80vh;
+            background: #333;
+            border-bottom: 5px solid red; /* 判定ラインの代わり */
+        }
+        .target {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background-color: #555; /* 画像の代わりにグレーの四角 */
+            border: 2px solid #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            cursor: pointer;
+            user-select: none;
+        }
+        #hud {
+            font-size: 24px;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="hud">TIME: <span id="time">20</span> | SCORE: <span id="score">0</span></div>
+
+    <!-- Start menu -->
+    <div id="menu">
+        <h2>A new kind of gay game</h2>
+        <p>Click the targets falling from above, starting with the one at the very bottom!</p>
+        <button onclick="startGame()">ゲーム開始</button>
+    </div>
+
+    <!-- Result screen -->
+    <div id="result" style="display: none;">
+        <h2>Game Over！</h2>
+        <p>score: <span id="final-score">0</span></p>
+        <p>CPS: <span id="cps">0.00</span></p>
+        <button onclick="restartGame()">リトライ</button>
+    </div>
+
+    <!-- Game Over -->
+    <div id="game-container"></div>
+
+    <script>
+        const container = document.getElementById('game-container');
+        const timeDisplay = document.getElementById('time');
+        const scoreDisplay = document.getElementById('score');
+        const menu = document.getElementById('menu');
+        const result = document.getElementById('result');
+        
+        let score = 0;
+        let timeLeft = 20;
+        let gameInterval;
+        let spawnInterval;
+        let targets = [];
+        let isPlaying = false;
+
+        // Start Game
+        function startGame() {
+            menu.style.display = 'none';
+            result.style.display = 'none';
+            score = 0;
+            timeLeft = 20;
+            targets = [];
+            container.innerHTML = '';
+            scoreDisplay.textContent = score;
+            timeDisplay.textContent = timeLeft;
+            isPlaying = true;
+
+            // Start timer (every 1 second)
+            gameInterval = setInterval(() => {
+                timeLeft--;
+                timeDisplay.textContent = timeLeft;
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+
+            // Periodically generate targets (initially, generate several at once)
+            spawnTarget();
+            spawnTarget();
+            spawnInterval = setInterval(spawnTarget, 800);
+        }
+
+        // Generation of targets
+        function spawnTarget() {
+            if (!isPlaying) return;
+
+            const target = document.createElement('div');
+            target.className = 'target';
+            target.textContent = 'Click here';
+            
+            // Randomly determine the horizontal position
+            const maxX = container.clientWidth - 90;
+            const randomX = Math.floor(Math.random() * maxX);
+            target.style.left = `${randomX}px`;
+            
+            // Initially placed at the top of the screen
+            let posY = 0;
+            target.style.top = `${posY}px`;
+
+            container.appendChild(target);
+            
+            // Managed via an array (stores positional information)
+            const targetObj = { element: target, y: posY };
+            targets.push(targetObj);
+
+            // Animation loop that moves the target downward
+            const moveSpeed = 2 + Math.random() * 2; // Make the falling speed random
+            function fall() {
+                if (!isPlaying || !targets.includes(targetObj)) return;
+                
+                targetObj.y += moveSpeed;
+                target.style.top = `${targetObj.y}px`;
+
+                // If an item passes the line at the very bottom of the screen (the judgment line), it is removed, and a penalty is applied.
+                if (targetObj.y > container.clientHeight - 80) {
+                    removeTarget(targetObj);
+                    // Perform operations such as reducing the score here, if necessary.
+                } else {
+                    requestAnimationFrame(fall);
+                }
+            }
+            requestAnimationFrame(fall);
+
+            // Registering a click event
+            target.addEventListener('mousedown', () => {
+                // A check for the rule where only the lowest target (the one with the maximum Y-coordinate) is considered the correct answer.
+                const lowestTarget = targets.reduce((max, t) => t.y > max.y ? t : max, targets[0]);
+                
+                if (targetObj === lowestTarget) {
+                    score++;
+                    scoreDisplay.textContent = score;
+                    removeTarget(targetObj);
+                }
+            });
+        }
+
+        // Delete target
+        function removeTarget(targetObj) {
+            if (targetObj.element.parentNode) {
+                targetObj.element.parentNode.removeChild(targetObj.element);
+            }
+            targets = targets.filter(t => t !== targetObj);
+        }
+
+        // Game Over
+        function endGame() {
+            isPlaying = false;
+            clearInterval(gameInterval);
+            clearInterval(spawnInterval);
+            
+            document.getElementById('final-score').textContent = score;
+            // Calculate CPS over 20 seconds
+            document.getElementById('cps').textContent = (score / 20).toFixed(2);
+            
+            result.style.display = 'block';
+        }
+
+        // retry
+        function restartGame() {
+            startGame();
+        }
+    </script>
+</body>
+</html>
